@@ -1,0 +1,199 @@
+<html>
+
+<head>
+    <title>3_Praktiskais</title>
+    <style>
+        body {
+            margin: 0;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%
+        }
+    </style>
+</head>
+
+<body>
+    <script src="three.min.js"></script>
+    <script src="OrbitControls.js"></script>
+    <script>
+        const module = {
+            neptuneDistance: 328712,
+            frame: 0, camera: null, renderer: null, scene: null, controls: null,
+
+            init() {
+                this.clock = new THREE.Clock();
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1000, this.neptuneDistance * 20);
+                this.camera.position.z = this.neptuneDistance * 2;
+                this.camera.position.y = this.neptuneDistance * 2;
+                this.renderer = new THREE.WebGLRenderer();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setClearColor(new THREE.Color(0xEEEEEE));
+                this.renderer.shadowMap.enabled = true;
+                document.body.appendChild(this.renderer.domElement);
+                this.createWorld();
+                this.setupEvents();
+                this.controls = new THREE.OrbitControls(this.camera);
+                this.animate()
+            },
+
+            setupEvents() {
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                })
+                this.raycaster = new THREE.Raycaster();
+                this.mouse = new THREE.Vector2();
+                this.selectedObj = null;
+
+                window.addEventListener('mousemove', (event) => {
+                    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                    this.mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+                    this.raycaster.setFromCamera(this.mouse, this.camera);
+                    var intersects = this.raycaster.intersectObjects(this.scene.children, true);
+                    for (var i = 0; i < intersects.length; i++) {
+                        if (this.changeSelection(intersects[i].object)) break;;
+                    }
+                }, false);
+            },
+            changeSelection(obj) {
+                if (obj != this.skysphere && this.selectedObj != obj) {
+                   if (this.selectedObj)
+                       this.selectedObj.material.color.set(new THREE.Color());
+                    this.selectedObj = obj;
+                    this.selectedObj.material.color.set(0xff0000);
+                    console.log(obj.name);
+                    return true;
+                }
+            },
+            createWorld() {
+                var geometry = new THREE.SphereGeometry(this.neptuneDistance * 9 + 10000, 64, 64);
+                var material = new THREE.MeshStandardMaterial({
+                    map: new THREE.TextureLoader().load('2k_stars_milky_way.jpg'),
+                    side: THREE.DoubleSide
+                });
+                this.skysphere = new THREE.Mesh(geometry, material);
+                this.scene.add(this.skysphere);
+                this.createLights();
+                this.createPlanet('earth', '2k_earth_daymap.jpg', 'earth_normal_2048.jpg', 149.6 * 1000, 42756 / 2);
+                this.createNeptune('neptune', '2k_neptune.jpg', this.neptuneDistance, 67928 / 2);
+                this.createMoon('moon', '2k_moon.jpg', 484.4 * 100, 10476 / 2, this.earth.parent);
+                this.createSun();
+            },
+
+            createPlanet(name, texture_name, normalMap, distance, radius) {
+                var geometry = new THREE.SphereGeometry(radius, 64, 64);
+                var normal = new THREE.MeshPhongMaterial({
+                    map: new THREE.TextureLoader().load(normalMap),
+                });
+                var material = new THREE.MeshStandardMaterial({
+                    map: new THREE.TextureLoader().load(texture_name),
+                    metalness: 0
+                });
+
+                let planet = new THREE.Mesh(geometry, material);
+                let system = new THREE.Object3D();
+                this[name] = planet;
+                planet.castShadow = true;
+                planet.receiveShadow = true;
+                planet.distance = distance;
+                system.add(planet);
+                this.scene.add(system);
+            },
+
+            createNeptune(name, texture_name, distance, radius) {
+                var geometry = new THREE.SphereGeometry(radius, 64, 64);
+                var material = new THREE.MeshStandardMaterial({
+                    map: new THREE.TextureLoader().load(texture_name),
+                    metalness: 0
+                });
+
+                let planet = new THREE.Mesh(geometry, material);
+                let system = new THREE.Object3D();
+                this[name] = planet;
+                planet.castShadow = true;
+                planet.receiveShadow = true;
+                planet.distance = distance;
+                system.add(planet);
+                this.scene.add(system);
+            },
+
+            createMoon(name, texture_name, distance, radius, system) {
+                var geometry = new THREE.SphereGeometry(radius, 64, 64);
+                var material = new THREE.MeshStandardMaterial({
+                    map: new THREE.TextureLoader().load(texture_name),
+                    metalness: 0
+                });
+
+                let moon = new THREE.Mesh(geometry, material);
+                this[name] = moon;
+                moon.receiveShadow = true;
+                moon.castShadow = true
+                moon.distance = distance;
+                moon.position.x = distance;
+                moon.satellite = true;
+                system.add(moon);
+            },
+
+            createSun() {
+                var geometry = new THREE.SphereGeometry(69700 / 2, 64, 64);
+                var material = new THREE.MeshStandardMaterial({
+                    emissive: 0xEEEE99,
+                    emissiveIntensity: 0.8,
+                    map: new THREE.TextureLoader().load('2k_sun.jpg')
+                });
+                this.sun = new THREE.Mesh(geometry, material);
+                this.scene.add(this.sun);
+            },
+
+            createLights() {
+                var sunLight = new THREE.PointLight(0xffffff, 1, this.neptuneDistance * 20, 1);
+
+                this.scene.add(new THREE.AmbientLight(0x404040));
+
+                sunLight.castShadow = true;
+                sunLight.shadow.mapSize.width = 1024;
+                sunLight.shadow.mapSize.height = 1024;
+                sunLight.shadow.camera.near = this.camera.near;
+                sunLight.shadow.camera.far = this.camera.far;
+                this.scene.add(sunLight);
+            },
+            animate() {
+                let tick = this.clock.getElapsedTime() / 10;
+                var sis = this;
+                this.frame++;
+                requestAnimationFrame(function () { sis.animate.call(sis) });
+                [this.earth].forEach(planet => {
+                    planet.parent.position.z = Math.sin(-tick) * planet.distance;
+                    planet.parent.position.x = Math.cos(-tick) * planet.distance;
+                    planet.rotation.y = tick * 10;
+                    planet.parent.children.forEach(function (sat) {
+                        if (sat.satellite) {
+                            sat.position.x = Math.cos(-tick * 4) * sat.distance;
+                            sat.position.z = Math.sin(-tick * 4) * sat.distance;
+                            sat.rotation.y = tick * 10;
+                        }
+                    })
+
+                });
+                [this.neptune].forEach(planet => {
+                    planet.parent.position.z = Math.sin(-tick / 1.5) * planet.distance;
+                    planet.parent.position.x = Math.cos(-tick / 1.5) * planet.distance;
+                    planet.rotation.y = tick * 10;
+
+                });
+                this.sun.rotation.y = tick * 0.1;
+                module.controls.update();
+                module.renderer.render(module.scene, module.camera);
+            }
+        }
+
+        module.init();
+
+    </script>
+</body>
+
+</html>
