@@ -7,4 +7,4 @@
 
 # Lai izveidotu darbu tika patērētas 4h 
 
-# Projekts pieejams GitHub repozitorijā: 
+# Projekts pieejams GitHub repozitorijā: https://github.com/davids-markovs/solarSystem/
